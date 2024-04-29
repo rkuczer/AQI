@@ -1,59 +1,72 @@
-from cryptography.fernet import Fernet
-import string
-import os
-import secrets
+import http.client
+import json
+import sqlite3
 
-# Generate a key for encryption
-key = Fernet.generate_key()
-cipher_suite = Fernet(key)
+# Function to parse the JSON data
+def parse_json(json_data):
+    parsed_data = json.loads(json_data)
+    return parsed_data
 
+# Connect to the SQLite database
+conn = sqlite3.connect('AQI_data.db')
+cursor = conn.cursor()
 
-def generate_password(length=15):
-    """Generate a random password with a given length."""
-    characters = string.ascii_letters + string.digits + string.punctuation
-    password = ''.join(secrets.choice(characters) for _ in range(length))
-    return password
+# Create a table to store AQI data if it doesn't exist already
+cursor.execute('''CREATE TABLE IF NOT EXISTS AirQuality (
+                    id INTEGER PRIMARY KEY,
+                    city_name TEXT,
+                    country_code TEXT,
+                    lon REAL,
+                    lat REAL,
+                    state_code TEXT,
+                    timezone TEXT,
+                    aqi INTEGER,
+                    co REAL,
+                    datetime TEXT,
+                    no2 REAL,
+                    o3 REAL,
+                    pm10 REAL,
+                    pm25 REAL,
+                    so2 REAL,
+                    timestamp_local TEXT,
+                    timestamp_utc TEXT,
+                    ts INTEGER,
+                    UNIQUE(datetime)
+                )''')
 
+# API request to get data
+conn_api = http.client.HTTPSConnection("air-quality.p.rapidapi.com")
+headers = {
+    'X-RapidAPI-Key': "3e350aa343msh88296d28e123221p16a4c8jsn0a6951d24206",
+    'X-RapidAPI-Host': "air-quality.p.rapidapi.com"
+}
+conn_api.request("GET", "/history/airquality?lon=-71.347&lat=42.278", headers=headers)
+res = conn_api.getresponse()
+json_data = res.read().decode("utf-8")
 
-def encrypt_password(password):
-    """Encrypt a password using the Fernet symmetric encryption algorithm."""
-    encrypted_password = cipher_suite.encrypt(password.encode())
-    return encrypted_password
+# Parse the JSON data
+parsed_data = parse_json(json_data)
 
+# Insert data into the database if datetime value doesn't exist already
+for entry in parsed_data['data']:
+    try:
+        cursor.execute('''INSERT INTO AirQuality (
+                            city_name, country_code, lon, lat, state_code, timezone,
+                            aqi, co, datetime, no2, o3, pm10, pm25, so2, timestamp_local,
+                            timestamp_utc, ts
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                       (parsed_data['city_name'], parsed_data['country_code'], parsed_data['lon'],
+                        parsed_data['lat'], parsed_data['state_code'], parsed_data['timezone'],
+                        entry['aqi'], entry['co'], entry['datetime'], entry['no2'], entry['o3'],
+                        entry['pm10'], entry['pm25'], entry['so2'], entry['timestamp_local'],
+                        entry['timestamp_utc'], entry['ts']))
+    except sqlite3.IntegrityError:
+        print("Some Data has been ignored " + str(entry))
+        # Ignore if the datetime value already exists in the database
+        pass
 
-def decrypt_password(encrypted_password):
-    """Decrypt an encrypted password."""
-    decrypted_password = cipher_suite.decrypt(encrypted_password).decode()
-    return decrypted_password
+# Commit the transaction and close the connection
+conn.commit()
+conn.close()
 
-
-def save_password_to_file(password, filename):
-    """Encrypt and save a password to a file."""
-    encrypted_password = encrypt_password(password)
-    with open(filename, 'wb') as file:
-        file.write(encrypted_password)
-
-
-def get_password_from_file(filename):
-    """Retrieve and decrypt a password from a file."""
-    with open(filename, 'rb') as file:
-        encrypted_password = file.read()
-    decrypted_password = decrypt_password(encrypted_password)
-    return decrypted_password
-
-
-def main():
-    # Example of generating a password
-    new_password = generate_password()
-    print(f"Generated Password: {new_password}")
-
-    # Save the generated password to an encrypted file
-    save_password_to_file(new_password, "encrypted_password.txt")
-
-    # Example of retrieving and decrypting a password from the file
-    retrieved_password = get_password_from_file("encrypted_password.txt")
-    print(f"Retrieved Password: {retrieved_password}")
-
-
-if __name__ == "__main__":
-    main()
+#print("Data inserted successfully into the database.")

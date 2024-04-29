@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Quality Data for Natick MA</title>
+    <!-- Include Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <!-- Container for the Plotly plot -->
+    <div id="plot-container"></div>
+
+    <!-- Script to render the Plotly plot -->
+    <script>
+        // Get the Plotly JSON data passed from Flask
+        var plotJson = {{ plot_json | safe }};
+
+        // Render the Plotly plot
+        Plotly.newPlot('plot-container', plotJson.data, plotJson.layout);
+    </script>
+</body>
+</html>

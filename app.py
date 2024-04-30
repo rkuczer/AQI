@@ -8,7 +8,7 @@ app = Flask(__name__)
 def fetch_data():
     conn = sqlite3.connect('AQI_data.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT datetime, city_name, pm25, aqi, o3, no2, so2 FROM AirQuality")
+    cursor.execute("SELECT datetime, city_name, pm25, aqi, o3, no2, so2 FROM AirQualitySorted")
     data = cursor.fetchall()
     conn.close()
     return data
@@ -20,12 +20,12 @@ def index():
     data = fetch_data()
 
     # Extract timestamps, PM2.5 values, AQI values, O3 values, NO2 values, and SO2 values
-    timestamps = [row[0] for row in data][::-1]  # Reversing the order of timestamps
-    pm25_values = [row[2] for row in data][::-1]
-    aqi_values = [row[3] for row in data][::-1]
-    o3_values = [row[4] for row in data][::-1]
-    no2_values = [row[5] for row in data][::-1]
-    so2_values = [row[6] for row in data][::-1]
+    timestamps = [row[0] for row in data]  # Reversing the order of timestamps
+    pm25_values = [row[2] for row in data]
+    aqi_values = [row[3] for row in data]
+    o3_values = [row[4] for row in data]
+    no2_values = [row[5] for row in data]
+    so2_values = [row[6] for row in data]
 
     # Create a single trace for PM2.5, AQI, O3, NO2, and SO2
     fig = go.Figure()
@@ -34,7 +34,7 @@ def index():
     fig.add_trace(go.Scatter(x=timestamps, y=pm25_values, mode='lines', name='PM2.5'))
 
     # Add trace for AQI
-    fig.add_trace(go.Scatter(x=timestamps, y=aqi_values, mode='lines', name='AQI'))
+    fig.add_trace(go.Scatter(x=timestamps, y=aqi_values, mode='lines', name='AQI', line=dict(width=4)))
 
     # Add trace for O3
     fig.add_trace(go.Scatter(x=timestamps, y=o3_values, mode='lines', name='O3'))

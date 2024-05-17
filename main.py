@@ -98,5 +98,7 @@ def organize_by_datetime():
 
 
 # Create database and fetch AQI data
+create_database()
+fetch_aqi_data()
 organize_by_datetime()
 

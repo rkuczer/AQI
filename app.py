@@ -20,33 +20,35 @@ def index():
     data = fetch_data()
 
     # Extract timestamps, PM2.5 values, AQI values, O3 values, NO2 values, and SO2 values
-    timestamps = [row[0] for row in data]  # Reversing the order of timestamps
+    timestamps = [row[0] for row in data]
     pm25_values = [row[2] for row in data]
     aqi_values = [row[3] for row in data]
     o3_values = [row[4] for row in data]
     no2_values = [row[5] for row in data]
     so2_values = [row[6] for row in data]
 
-    # Create a single trace for PM2.5, AQI, O3, NO2, and SO2
-    fig = go.Figure()
+    # Create trace for PM2.5, AQI, O3, NO2, and SO2
+    pm25_trace = go.Scatter(x=timestamps, y=pm25_values, mode='lines', name='PM2.5')
+    aqi_trace = go.Scatter(x=timestamps, y=aqi_values, mode='lines', name='AQI', line=dict(width=4))
+    o3_trace = go.Scatter(x=timestamps, y=o3_values, mode='lines', name='O3')
+    no2_trace = go.Scatter(x=timestamps, y=no2_values, mode='lines', name='NO2')
+    so2_trace = go.Scatter(x=timestamps, y=so2_values, mode='lines', name='SO2')
 
-    # Add trace for PM2.5
-    fig.add_trace(go.Scatter(x=timestamps, y=pm25_values, mode='lines', name='PM2.5'))
+    # Create a list of traces
+    traces = [pm25_trace, aqi_trace, o3_trace, no2_trace, so2_trace]
 
-    # Add trace for AQI
-    fig.add_trace(go.Scatter(x=timestamps, y=aqi_values, mode='lines', name='AQI', line=dict(width=4)))
 
-    # Add trace for O3
-    fig.add_trace(go.Scatter(x=timestamps, y=o3_values, mode='lines', name='O3'))
 
-    # Add trace for NO2
-    fig.add_trace(go.Scatter(x=timestamps, y=no2_values, mode='lines', name='NO2'))
+    # Create the layout with fixed width and height
+    layout = go.Layout(
+        title="Air Quality Data over Time in Natick MA",
+        xaxis_title="Date",
+        yaxis_title="Concentration (µg/m³ or ppm)",
+        autosize=True,  # Automatically adjust the size
 
-    # Add trace for SO2
-    fig.add_trace(go.Scatter(x=timestamps, y=so2_values, mode='lines', name='SO2'))
-
+    )
     # Update layout
-    fig.update_layout(title="Air Quality Data over Time in Natick MA", xaxis_title="Date", yaxis_title="Concentration (µg/m³ or ppm)")
+    fig = go.Figure(data=traces, layout=layout)
 
     # Convert the Plotly figure to JSON
     plot_json = fig.to_json()

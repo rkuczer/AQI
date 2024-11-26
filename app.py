@@ -43,6 +43,19 @@ def login():
     
     return render_template('login.html')
 
+def is_strong_password(password):
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not any(char.isupper() for char in password):
+        return False, "Password must include at least one uppercase letter."
+    if not any(char.islower() for char in password):
+        return False, "Password must include at least one lowercase letter."
+    if not any(char.isdigit() for char in password):
+        return False, "Password must include at least one digit."
+    if not any(char in "!@#$%^&*()-_=+[]{}|;:'\",.<>?/`~" for char in password):
+        return False, "Password must include at least one special character."
+    return True, None
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -50,9 +63,15 @@ def register():
         email = request.form['email']
         password = request.form['password']
         
-        # Check if user already exists
+          # Check if user already exists
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
+            return redirect(url_for('register'))
+            
+        # Validate password strength
+        is_valid, error_message = is_strong_password(password)
+        if not is_valid:
+            flash(error_message)  # Show the specific validation error
             return redirect(url_for('register'))
         
         # Create new user

@@ -3,11 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Air Quality Dashboard</title>
-    <!-- Include Plotly.js -->
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <title>{% block title %}Air Quality Dashboard{% endblock %}</title>
     <style>
-        /* Add some basic navigation styling */
         nav {
             background-color: #f1f1f1;
             padding: 10px;
@@ -23,9 +20,9 @@
             margin-bottom: 10px;
         }
     </style>
+    {% block head %}{% endblock %}
 </head>
 <body>
-    <!-- Navigation -->
     <nav>
         {% if current_user.is_authenticated %}
             <a href="{{ url_for('index') }}">Dashboard</a>
@@ -36,7 +33,6 @@
         {% endif %}
     </nav>
 
-    <!-- Flash Messages -->
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             <div class="flash-messages">
@@ -47,25 +43,6 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Main Content -->
-    <div>
-        <h1>Air Quality Data for Natick MA</h1>
-        
-        {% if current_user.is_authenticated %}
-            <!-- Container for the Plotly plot -->
-            <div id="plot-container"></div>
-
-            <!-- Script to render the Plotly plot -->
-            <script>
-                // Get the Plotly JSON data passed from Flask
-                var plotJson = {{ plot_json | safe }};
-
-                // Render the Plotly plot
-                Plotly.newPlot('plot-container', plotJson.data, plotJson.layout);
-            </script>
-        {% else %}
-            <p>Please log in to view the dashboard.</p>
-        {% endif %}
-    </div>
+    {% block content %}{% endblock %}
 </body>
 </html>

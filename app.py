@@ -4,6 +4,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import plotly.graph_objs as go
+import json
+import http.client
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'Skyrim124!!'  # Change this to a random secret key
@@ -62,7 +64,18 @@ def register():
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
+        challenge_answer = request.form['challenge']
         
+        # Validate the challenge question
+        try:
+            if int(challenge_answer) != 72:
+                flash("Incorrect answer to the challenge question. Please try again.")
+                return redirect(url_for('register'))
+        except ValueError:
+            flash("Challenge answer must be a number. Please try again.")
+            return redirect(url_for('register'))
+
+
           # Check if user already exists
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
@@ -104,48 +117,82 @@ def fetch_data():
     return data
 
 # Main route to render the plot
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
-    # Fetch data from the SQLite database
-    data = fetch_data()
+    if request.method == 'POST':
+        # Retrieve latitude and longitude from the form
+        lat = request.form['lat']
+        lon = request.form['lon']
 
-    # Extract timestamps, PM2.5 values, AQI values, O3 values, NO2 values, and SO2 values
-    timestamps = [row[0] for row in data]
-    pm25_values = [row[2] for row in data]
-    aqi_values = [row[3] for row in data]
-    o3_values = [row[4] for row in data]
-    no2_values = [row[5] for row in data]
-    so2_values = [row[6] for row in data]
+        try:
+            # Fetch data from the API
+            conn = http.client.HTTPSConnection("air-quality.p.rapidapi.com")
+            headers = {
+                'x-rapidapi-key': "3e350aa343msh88296d28e123221p16a4c8jsn0a6951d24206",
+                'x-rapidapi-host': "air-quality.p.rapidapi.com"
+            }
+            conn.request("GET", f"/current/airquality?lon={lon}&lat={lat}", headers=headers)
+            res = conn.getresponse()
+            data = json.loads(res.read().decode("utf-8"))
 
-    # Create trace for PM2.5, AQI, O3, NO2, and SO2
-    pm25_trace = go.Scatter(x=timestamps, y=pm25_values, mode='lines', name='PM2.5')
-    aqi_trace = go.Scatter(x=timestamps, y=aqi_values, mode='lines', name='AQI', line=dict(width=4))
-    o3_trace = go.Scatter(x=timestamps, y=o3_values, mode='lines', name='O3')
-    no2_trace = go.Scatter(x=timestamps, y=no2_values, mode='lines', name='NO2')
-    so2_trace = go.Scatter(x=timestamps, y=so2_values, mode='lines', name='SO2')
+             # DEBUG: Print the raw API response for inspection
+            print("API Response:", data)
 
-    # Create a list of traces
-    traces = [pm25_trace, aqi_trace, o3_trace, no2_trace, so2_trace]
+            # Parse data
+            if 'data' in data and len(data['data']) > 0:
+                aqi_data = data['data'][0]  # Adjust parsing as per the API response
+                city_name = data.get('city_name', 'Unknown City')
+                state_code = data.get('state_code', 'Unknown State')
 
+                timestamp = aqi_data.get('timestamp_local', 'N/A')
+                pm25 = aqi_data.get('pm25', 0)
+                aqi = aqi_data.get('aqi', 0)
+                o3 = aqi_data.get('o3', 0)
+                no2 = aqi_data.get('no2', 0)
+                so2 = aqi_data.get('so2', 0)
 
+                # Prepare data for Plotly visualization
+                timestamps = [timestamp]
+                pm25_values = [pm25]
+                aqi_values = [aqi]
+                o3_values = [o3]
+                no2_values = [no2]
+                so2_values = [so2]
 
-    # Create the layout with fixed width and height
-    layout = go.Layout(
-        title="Air Quality Data over Time in Natick MA",
-        xaxis_title="Date",
-        yaxis_title="Concentration (µg/m³ or ppm)",
-        autosize=True,  # Automatically adjust the size
+                # Create traces for the graph
+                traces = [
+                    go.Scatter(x=timestamps, y=pm25_values, mode='lines+markers', name='PM2.5'),
+                    go.Scatter(x=timestamps, y=aqi_values, mode='lines+markers', name='AQI', line=dict(width=4)),
+                    go.Scatter(x=timestamps, y=o3_values, mode='lines+markers', name='O3'),
+                    go.Scatter(x=timestamps, y=no2_values, mode='lines+markers', name='NO2'),
+                    go.Scatter(x=timestamps, y=so2_values, mode='lines+markers', name='SO2')
+                ]
 
-    )
-    # Update layout
-    fig = go.Figure(data=traces, layout=layout)
+                # Update layout title to include city and state
+                layout = go.Layout(
+                    title=f"Air Quality Data for {city_name}, {state_code}",
+                    xaxis_title="Timestamp",
+                    yaxis_title="Concentration (µg/m³ or ppm)",
+                    autosize=True
+                )
 
-    # Convert the Plotly figure to JSON
-    plot_json = fig.to_json()
+                # Create Plotly figure
+                fig = go.Figure(data=traces, layout=layout)
+                plot_json = fig.to_json()
+            
+            else:
+                flash("No data found for the given coordinates. Please try again.")
 
-    # Render the template with the plot JSON
-    return render_template('index.html', plot_json=plot_json)
+            # Render template with Plotly plot
+            return render_template('index.html', plot_json=plot_json)
+
+        except Exception as e:
+            print(f"Error: {e}")
+            flash("Error fetching air quality data. Please check the coordinates or try again.")
+
+    # Render the page with the input form when method is GET
+    return render_template('index.html', plot_json=None)
 
 if __name__ == "__main__":
     with app.app_context():
